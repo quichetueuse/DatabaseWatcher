@@ -11,7 +11,15 @@ class DumpManager:
         :rtype: str
         :return: Content of the database is json format (in string)
         """
+
+        #crypt
         pass
 
     def _toString(self, database_content: dict, raw: bool = False):
+        pass
+
+    def backupDatabase(self, databse_name: str):
+        pass
+
+    def restoreDatabase(self, json_path: str):
         pass
