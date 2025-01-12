@@ -10,19 +10,19 @@ from ConfigManager import ConfigManager
 
 class DatabaseManager:
 
-    def __init__(self):
+    def __init__(self, config_manager: ConfigManager):
         # data retrieve queries
-        self._get_dbs_query = 'SHOW DATABASES'
-        self._get_tables_query = "SHOW TABLES"
-        self._get_fields_query = "SHOW FIELDS FROM ?"
-        self._get_records_query = "SELECT %f FROM %t"
+        self._get_dbs_query = 'SHOW DATABASES;'
+        self._get_tables_query = "SHOW TABLES;"
+        self._get_fields_query = "SHOW FIELDS FROM %table;"
+        self._get_records_query = "SELECT * FROM %table LIMIT 15;"
 
         # data insertion queries
-        self._records_insert_query = "INSERT INTO %t (%f) VALUES(%v)"
-        self._table_creation_query = """CREATE TABLE %t ()"""  # https://www.w3schools.com/sql/sql_foreignkey.asp
-        self._database_creation_query = "CREATE DATABASE %db"
+        self._records_insert_query = "INSERT INTO %table (?) VALUES(?);"
+        self._table_creation_query = """CREATE TABLE %table ();"""  # https://www.w3schools.com/sql/sql_foreignkey.asp
+        self._database_creation_query = "CREATE DATABASE ?;"
 
-        self._config_manager = ConfigManager()
+        self._config_manager = config_manager
         # self._connection = mariadb.connect(
         #     host=self._config_manager.host,
         #     user=self._config_manager.user,
@@ -33,7 +33,7 @@ class DatabaseManager:
         self._cursor = None
         # self._connection.close()
 
-    def connectToDBServer(self) -> Connection:
+    def _connectToDBServer(self) -> Connection:
         return mariadb.connect(
             host=self._config_manager.host,
             user=self._config_manager.user,
@@ -58,7 +58,7 @@ class DatabaseManager:
     def _getAllTables(self) -> List[tuple]:
         # print(self._connection.open)
         # self._connection.reconnect()
-        self._connection = self.connectToDBServer()
+        self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor()
 
         self._cursor.execute(self._get_tables_query)
@@ -69,12 +69,12 @@ class DatabaseManager:
         return tables
 
     def _getFieldsFromTable(self, table: str) -> List[tuple]:
-        self._connection = self.connectToDBServer()
+        self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor()
 
         # test = self._get_fields_query.replace('?', table)
         # self._cursor.execute(self._get_fields_query, table)
-        self._cursor.execute(self._get_fields_query.replace('?', table))
+        self._cursor.execute(self._get_fields_query.replace('%table', table))
         # self._cursor.execute("SELECT * FROM clients WHERE nom= %s", ('Smith',))
         fields = self._cursor.fetchall()
 
@@ -83,11 +83,11 @@ class DatabaseManager:
 
         return fields
 
-    def _getRecordsFromTable(self, fields: tuple, table: str) -> List[tuple]:
-        self._connection = self.connectToDBServer()
-        self._cursor = self._connection.cursor()
+    def _getRecordsFromTable(self, table: str) -> List[tuple]:
+        self._connection = self._connectToDBServer()
+        self._cursor = self._connection.cursor(prepared=True)
 
-        self._cursor.execute(self._get_fields_query, (fields, table) )
+        self._cursor.execute(self._get_records_query.replace('%table', table))
         records = self._cursor.fetchall()
 
         self._connection.close()
