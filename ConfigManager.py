@@ -13,6 +13,11 @@ class ConfigManager:
 
         # Loading config file content
 
+        # App settings part
+        self.crypt_dump = self.main_section.getboolean('crypt_dump')
+        self.json_file_name = self.main_section.get('json_file_name')
+
+        # Database part
         self.database = self.database_section.get('db_to_backup')
         self.host = self.database_section.get('db_host')
         self.user = self.database_section.get('db_user')
