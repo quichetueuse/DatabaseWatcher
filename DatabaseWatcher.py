@@ -12,6 +12,7 @@ class DatabaseWatcher:
     def __init__(self):
         # Loading configuration manager class
         self.config_manager = ConfigManager()
+        self.crypt_dump = self.config_manager.crypt_dump
 
         # instancing other app components
         self.database_manager = DatabaseManager(config_manager=self.config_manager)
@@ -35,62 +36,9 @@ class DatabaseWatcher:
 
             # Filling blank pattern
             table_pattern["name"] = table
-
-            # # Getting every field from current table
-            # fields = self.database_manager._getFieldsFromTable(table=table)
-
-            # field_patterns: list[dict] = self._generateFieldPatterns(table=table)
-
-            # fields_name: List[str] = []
-            # # Looping through fields list from current table
-            # for field in fields:
-            #     # Getting a copy of field pattern
-            #     field_pattern = {"field": None, "type": None, "null": True, "key": None, "default": None, "extra": None}
-            #
-            #     fields_name.append(field[0])
-            #
-            #     # # Filling blank pattern
-            #     # field_pattern['field'] = field[0] # todo optimiser ca avec un for
-            #     # field_pattern['type'] = field[1]
-            #     # field_pattern['null'] = field[2]
-            #     # field_pattern['key'] = field[3]
-            #     # field_pattern['default'] = field[4]
-            #     # field_pattern['extra'] = field[5]
-            #     for i, pattern_key in enumerate(field_pattern.keys()):
-            #         field_pattern[pattern_key] = field[i]
-            #
-            #     # Appending pattern to pattern list
-            #     field_patterns.append(field_pattern)
-            #     field_pattern = None
-            #
+            # Getting every field information about current table
             table_pattern['fields'] = self._generateFieldPatterns(table=table)
-            #
-            # records = self.database_manager._getRecordsFromTable(table=table)
-
-            # record_values: List[List[dict]] = []
-            # record_values2: List[tuple] = []
-            #
-            # # Looping through each record from current table
-            # for record in records:
-            #     test = tuple([str(value) for value in record])
-            #     record_values2.append(test)
-            #     record_fields: List[dict] = []
-            #     # Looping from each field name in table
-            #     for i, field in enumerate(fields_name):
-            #         # Getting a copy of record pattern
-            #         record_pattern = {"field": None, "value": None}
-            #
-            #         record_pattern['field'] = field
-            #         # if isinstance(record[i], (datetime, date, time, Decimal)):
-            #         #     value = str(record[i])
-            #         # else:
-            #         #     value = record[i]
-            #         # record_pattern['value'] = value
-            #         record_pattern['value'] = str(record[i])
-            #
-            #         record_fields.append(record_pattern)
-            #
-            #     record_values.append(record_fields)
+            # Getting every record from current table
             table_pattern['records'] = self._generateRecordPatterns(table=table)
 
             database_dump['tables'].append(table_pattern)
@@ -125,6 +73,7 @@ class DatabaseWatcher:
         # List of tuple that will store every record
         record_values: List[list] = []
 
+        # looping through each record fetched from database
         for record in records:
             # Convert every value to string to avoid exception while trying to convert datetime to json
             temporary = [str(value) for value in record]
@@ -148,7 +97,9 @@ class DatabaseWatcher:
         pass
 
     def dumpDatabase(self):
-        pass
+        db_dump = self.createDictionary()
+        self.dump_manager.writeJsonDump(db_dump, encrypt_dump=self.crypt_dump, file_name=self.config_manager.json_file_name)
+
 
 
     def restoreDatabase(self):

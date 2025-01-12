@@ -18,7 +18,7 @@ class DumpManager:
         else:
             self.cypher = None
 
-    def toJson(self, database_dump: dict, encrypt_data: bool = False) -> str:
+    def _toJson(self, database_dump: dict, encrypt_data: bool = False) -> str:
         """
         Method that take à dictionary and convert it to a string in json format
         :param database_dump: Content of the database
@@ -29,7 +29,7 @@ class DumpManager:
 
         # If no encryption is needed
         if not encrypt_data:
-            return json.dumps(database_dump, indent=4, ensure_ascii=False)
+            return json.dumps(database_dump, indent=2, ensure_ascii=False)
 
         # if encryption is needed
 
@@ -51,7 +51,7 @@ class DumpManager:
 
             encrypted_database_dump['tables'].append(table_pattern)
 
-        return json.dumps(encrypted_database_dump, indent=4, ensure_ascii=False)
+        return json.dumps(encrypted_database_dump, indent=2, ensure_ascii=False)
 
     def _encryptFields(self, fields: List[dict]) -> List[dict]:
 
@@ -84,11 +84,22 @@ class DumpManager:
 
         return record_values
 
-    def _writeToFile(self, json_string: str):
-        pass
+    def writeJsonDump(self, dump_dictionary: dict, file_name: str, encrypt_dump: bool = False):
+        json_str = self._toJson(database_dump=dump_dictionary, encrypt_data=encrypt_dump)
+        file_name = self._buildFileName(file_name)
 
-    def _toString(self, database_content: dict, raw: bool = False):
-        pass
+        # Writing dump into file
+        with (open(file_name, 'w', encoding='utf-8') as json_file):
+            json_file.write(json_str)
+
+        return
+
+    def _buildFileName(self, name: str) -> str:
+        # If extension in name
+        if '.json' in name:
+            return name
+
+        return name + '.json'
 
     def createBackupFile(self, database_dump: dict):
         pass
