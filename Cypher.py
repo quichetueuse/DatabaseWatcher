@@ -12,11 +12,21 @@ class Cypher:
         print("current encrypt key: ", os.environ['ENC_kEY'])
 
     def encryptString(self, string: str) -> str:
+        """
+        Encrypt given string
+        :param string: string to encrypt
+        :return: encrypted string
+        """
         fernet = Fernet(self.key)
         byte_string = str.encode(string)
         return fernet.encrypt(byte_string).decode()
 
     def decryptString(self, string: str) -> str:
+        """
+        Decrypt given string
+        :param string: string to decrypt
+        :return: decrypted string
+        """
         fernet = Fernet(self.key)
         byte_string = str.encode(string)
         return fernet.decrypt(byte_string).decode()
