@@ -81,8 +81,7 @@ class DatabaseWatcher:
 
         return record_values
 
-
-    def _getAllTablesName(self):
+    def _getAllTablesName(self) -> List[str]:
 
         raw_tables: List[tuple] = self.database_manager._getAllTables()
 
@@ -93,17 +92,91 @@ class DatabaseWatcher:
     # def _getAllFieldsFromTable(self, table) -> List[tuple]:
     #     return self.database_manager._getFieldsFromTable(table=table)
 
-    def didDatabaseChanged(self):
-        pass
+    # def didDatabaseChanged(self, old_content: dict, new_content: dict) -> bool:
+    #     # if nothing in database changed
+    #     if old_content == new_content:
+    #         return False
+    #
+    #     # if a table was dropped
+    #     if len(old_content.get('tables')) != len(new_content.get('tables')):
+    #         print("Atleast one table is missing from database")
+    #
+    #         # find which database dump has the highest number of tables remaining
+    #         if len(old_content.get('tables')) > len(new_content.get('tables')):
+    #             loop_count: int = len(old_content.get('tables'))
+    #         elif len(old_content.get('tables')) < len(new_content.get('tables')):
+    #             loop_count: int = len(new_content.get('tables'))
+    #         else:
+    #             loop_count: int = len(new_content.get('tables'))
+    #
+    #         # Check which table is missing
+    #         for i, old_table, new_table in enumerate(old_content.get('tables', new_content.get('tables'))):
+    #             print(old_table['name'], new_table['name'])
+
+    def compareTables(self):
+        # Getting table names from both the backup file and database
+        backup = self.dump_manager._GetBackup()
+        backup_table_names: list[str] = []
+        for table in backup['tables']:
+            backup_table_names.append(table['name'])
+
+        db_table_names: list[str] = self._getAllTablesName()
+        print(f'current table names: {db_table_names}\n backup table names: {backup_table_names}')
+
+        # Loop through backup tables (to add or update)
+        while len(backup_table_names) > 0:
+            table = backup_table_names[-1]
+            # Add table from backup
+            if self.getIndexValueFromList(db_table_names, table) is None:
+                print('\nAjout')
+                self.database_manager.addFromBackup(table, backup)
+                backup_table_names.pop(-1)
+
+            # Update table from backup
+            else:
+                print('\nupdate')
+                self.database_manager.removeFromDatabase(table)
+                self.database_manager.addFromBackup(table, backup)
+                backup_table_names.pop(-1)
+                db_table_names.pop(db_table_names.index(table))
+
+        # Loop remaining tables from database (to be removed)
+        while len(db_table_names) > 0:
+            print('\ndelete')
+            table = db_table_names[-1]
+            # Remove table from database
+            self.database_manager.removeFromDatabase(table)
+            db_table_names.pop(-1)
+
+        print(f"Error count at the end: {self.database_manager.error_count}")
+
+    def getIndexValueFromList(self, list_to_check: list, value: str):
+        try:
+            result = list_to_check.index(value)
+        except ValueError:
+            result = None
+        return result
+
+
+
+    def compareTableColumns(self, tables_to_check: list[str], backup):
+
+        for table in backup['tables']:
+            if table['name'] not in tables_to_check:
+                continue
+
+            backup_fields_infos: list = table['fields']
+            db_fields_infos: list = self._generateFieldPatterns(table['name'])
+            print(db_fields_infos[0], backup_fields_infos)
+
+
 
     def dumpDatabase(self):
+        # print(self.database_manager.checkIfRecordExists('clients', 'id', '2'))
+        # print(self.database_manager.updateExistingRecord('avis', ['id', 'created_at', 'updated_at', 'auteur'], ['3', '12/03/2025', '15/03/2025', 'michel']))
         db_dump = self.createDictionary()
         self.dump_manager.writeJsonDump(db_dump, encrypt_dump=self.crypt_dump, file_name=self.config_manager.json_file_name)
 
-
-
-    def restoreDatabase(self):
-        pass
 
 
 #SELECT User FROM mysql.user;
