@@ -1,5 +1,4 @@
 import json
-# from json import dumps
 from typing import List
 
 import colorama
