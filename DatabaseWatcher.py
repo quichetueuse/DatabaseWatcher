@@ -18,11 +18,6 @@ class DatabaseWatcher:
         self.database_manager = DatabaseManager(config_manager=self.config_manager)
         self.dump_manager = DumpManager(config_manager=self.config_manager)
 
-        # Defining pattern for data
-        # self.table_pattern: dict = {"name": None, "fields": [], "records": []}
-        # self.field_pattern: dict = {"field": None, "type": None, "null": True, "key": None, "default": None, "extra": None}
-        # self.record_pattern: dict = {"field": None, "value": None}
-
     def _createDictionary(self) -> dict:
         database_dump: dict = {'tables': []}
 
@@ -82,36 +77,11 @@ class DatabaseWatcher:
         return record_values
 
     def _getAllTablesName(self) -> List[str]:
-
         raw_tables: List[tuple] = self.database_manager._getAllTables()
 
         # Getting only tables name
         tables_name: List[str] = [raw_table[0] for raw_table in raw_tables]
         return tables_name
-
-    # def _getAllFieldsFromTable(self, table) -> List[tuple]:
-    #     return self.database_manager._getFieldsFromTable(table=table)
-
-    # def didDatabaseChanged(self, old_content: dict, new_content: dict) -> bool:
-    #     # if nothing in database changed
-    #     if old_content == new_content:
-    #         return False
-    #
-    #     # if a table was dropped
-    #     if len(old_content.get('tables')) != len(new_content.get('tables')):
-    #         print("Atleast one table is missing from database")
-    #
-    #         # find which database dump has the highest number of tables remaining
-    #         if len(old_content.get('tables')) > len(new_content.get('tables')):
-    #             loop_count: int = len(old_content.get('tables'))
-    #         elif len(old_content.get('tables')) < len(new_content.get('tables')):
-    #             loop_count: int = len(new_content.get('tables'))
-    #         else:
-    #             loop_count: int = len(new_content.get('tables'))
-    #
-    #         # Check which table is missing
-    #         for i, old_table, new_table in enumerate(old_content.get('tables', new_content.get('tables'))):
-    #             print(old_table['name'], new_table['name'])
 
     def compareTables(self):
         # Getting table names from both the backup file and database
@@ -140,7 +110,7 @@ class DatabaseWatcher:
                 backup_table_names.pop(-1)
                 db_table_names.pop(db_table_names.index(table))
 
-        # Loop remaining tables from database (to be removed)
+        # Loop through remaining tables from database (to be removed)
         while len(db_table_names) > 0:
             print('\ndelete')
             table = db_table_names[-1]
@@ -148,6 +118,7 @@ class DatabaseWatcher:
             self.database_manager.removeFromDatabase(table)
             db_table_names.pop(-1)
 
+        # Show errors to user
         print(f"\n============\nBackup restoring ended with {self.database_manager.table_creation_error + self.database_manager.table_delete_error + self.database_manager.record_insert_error} errors:")
         print(f"\t- {self.database_manager.table_creation_error} table creation error(s)")
         print(f"\t- {self.database_manager.table_delete_error} table delete error(s)")
@@ -161,53 +132,9 @@ class DatabaseWatcher:
         return result
 
     def dumpDatabase(self):
-        # print(self.database_manager.checkIfRecordExists('clients', 'id', '2'))
-        # print(self.database_manager.updateExistingRecord('avis', ['id', 'created_at', 'updated_at', 'auteur'], ['3', '12/03/2025', '15/03/2025', 'michel']))
         db_dump = self._createDictionary()
         self.dump_manager.writeJsonDump(db_dump, encrypt_dump=self.crypt_dump, file_name=self.config_manager.json_file_name)
         print(f"\n============\nBackup creation ended with {self.database_manager.table_gathering_error + self.database_manager.property_gathering_error + self.database_manager.record_gathering_error} errors:")
         print(f"\t- {self.database_manager.table_gathering_error} table gathering error(s)")
         print(f"\t- {self.database_manager.property_gathering_error} property gathering error(s)")
         print(f"\t- {self.database_manager.record_gathering_error} record gathering error(s)")
-
-
-
-#SELECT User FROM mysql.user;
-#SHOW FIELDS FROM mysql.user;
-#SHOW TABLES;
-
-#https://stackoverflow.com/questions/201621/how-do-i-see-all-foreign-keys-to-a-table-or-column
-
-"""
-select concat(fks.constraint_schema, '.', fks.table_name) as foreign_table,
-       '->' as rel,
-       concat(fks.unique_constraint_schema, '.', fks.referenced_table_name)
-              as primary_table,
-       fks.constraint_name,
-       group_concat(kcu.column_name
-            order by position_in_unique_constraint separator ', ') 
-             as fk_columns
-from information_schema.referential_constraints fks
-join information_schema.key_column_usage kcu
-     on fks.constraint_schema = kcu.table_schema
-     and fks.table_name = kcu.table_name
-     and fks.constraint_name = kcu.constraint_name
--- where fks.constraint_schema = 'database name'
-group by fks.constraint_schema,
-         fks.table_name,
-         fks.unique_constraint_schema,
-         fks.referenced_table_name,
-         fks.constraint_name
-order by fks.constraint_schema,
-         fks.table_name;
-
-
-"""
-# SHOW CREATE TABLE `<yourtable>`;
-
-# SELECT * FROM information_schema.TABLE_CONSTRAINTS
-# WHERE information_schema.TABLE_CONSTRAINTS.CONSTRAINT_TYPE = 'FOREIGN KEY'
-# AND information_schema.TABLE_CONSTRAINTS.TABLE_NAME = 'clients';
-
-
-# get all foreign keys : select * from INFORMATION_SCHEMA.TABLE_CONSTRAINTS where CONSTRAINT_TYPE = 'FOREIGN KEY';
