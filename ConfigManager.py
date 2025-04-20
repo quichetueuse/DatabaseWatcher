@@ -19,6 +19,7 @@ class ConfigManager:
             # App settings part
             self.crypt_dump = self.main_section.getboolean('crypt_dump')
             self.json_file_name = self.main_section.get('json_file_name')
+            self.debug_mode = self.main_section.getboolean('debug_mode')
 
             # Database part
             self.database = self.database_section.get('db_to_backup')
@@ -28,3 +29,4 @@ class ConfigManager:
         except KeyError:
             print(colorama.Fore.RED + f"Configuration file not found (invalid path) or some values are missing in it" + colorama.Fore.RESET)
             exit(1)
+        print(colorama.Fore.BLUE + "Configuration loaded" + colorama.Fore.RESET)
