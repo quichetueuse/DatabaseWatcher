@@ -9,9 +9,9 @@ from DumpManager import DumpManager
 
 class DatabaseWatcher:
 
-    def __init__(self):
+    def __init__(self, config_file_path):
         # Loading configuration manager class
-        self.config_manager = ConfigManager()
+        self.config_manager = ConfigManager(config_file_path)
         self.crypt_dump = self.config_manager.crypt_dump
 
         # instancing other app components
@@ -148,7 +148,10 @@ class DatabaseWatcher:
             self.database_manager.removeFromDatabase(table)
             db_table_names.pop(-1)
 
-        print(f"Error count at the end: {self.database_manager.error_count}")
+        print(f"\n============\nBackup restoring ended with {self.database_manager.table_creation_error + self.database_manager.table_delete_error + self.database_manager.record_insert_error} errors:")
+        print(f"\t- {self.database_manager.table_creation_error} table creation error(s)")
+        print(f"\t- {self.database_manager.table_delete_error} table delete error(s)")
+        print(f"\t- {self.database_manager.record_insert_error} record insert error(s)")
 
     def getIndexValueFromList(self, list_to_check: list, value: str):
         try:
@@ -176,6 +179,10 @@ class DatabaseWatcher:
         # print(self.database_manager.updateExistingRecord('avis', ['id', 'created_at', 'updated_at', 'auteur'], ['3', '12/03/2025', '15/03/2025', 'michel']))
         db_dump = self.createDictionary()
         self.dump_manager.writeJsonDump(db_dump, encrypt_dump=self.crypt_dump, file_name=self.config_manager.json_file_name)
+        print(f"\n============\nBackup creation ended with {self.database_manager.table_gathering_error + self.database_manager.property_gathering_error + self.database_manager.record_gathering_error} errors:")
+        print(f"\t- {self.database_manager.table_gathering_error} table gathering error(s)")
+        print(f"\t- {self.database_manager.property_gathering_error} property gathering error(s)")
+        print(f"\t- {self.database_manager.record_gathering_error} record gathering error(s)")
 
 
 
