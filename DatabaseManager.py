@@ -124,13 +124,15 @@ class DatabaseManager:
         :param values: all the values to insert
         :return: Boolean that mean if query worked or not
         """
-        print(f"Begin populating table {table}")
+        if self._config_manager.debug_mode:
+            print(f"Begin populating table {table}")
         # Build insert query
         current_query = self._records_insert_query
         current_query = current_query.replace("%table", table).replace('%fields', ', '.join(fields)).replace('?', ('%s, '*len(values[0]))[0:-2] )
 
         self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor(prepared=True)
+        value_pair = None
         try:
             # Inserting each row
             for value_pair in values:
@@ -140,14 +142,18 @@ class DatabaseManager:
         # Rollback if something go wrong
         except Exception as e:
             self._connection.rollback()
-            print(colorama.Fore.RED + f"Ending populating table {table} with errors: {current_query}" + colorama.Fore.RESET)
-            print(colorama.Fore.RED + f"{e}" + colorama.Fore.RESET)
-            self.record_insert_error +=1
+            print(colorama.Fore.RED + f"Error during record insertion in table of values {value_pair}" + colorama.Fore.RESET)
+            if self._config_manager.debug_mode:
+                print(colorama.Fore.RED + f"{e}" + colorama.Fore.RESET)
+                print(f"Ending populating table {table}")
+            self._connection.rollback()
+            self.record_insert_error += 1
             return False
 
         self._connection.commit()
         self._connection.close()
-        print(f"Ending populating table {table}")
+        if self._config_manager.debug_mode:
+            print(f"Ending populating table {table}")
         return True
 
 
@@ -158,7 +164,8 @@ class DatabaseManager:
         :param backup: json pattern of given table
         :return: Boolean that mean if query worked or not
         """
-        print(f"Begin addFromBackup({table_name})")
+        if self._config_manager.debug_mode:
+            print(f"Begin addFromBackup({table_name})")
         fields_infos: list = []
         records: list = []
         for table in backup['tables']:
@@ -166,24 +173,30 @@ class DatabaseManager:
                 fields_infos = table['fields']
                 records = table['records']
 
-        print(colorama.Fore.BLUE + f"{len(records)} records were found for table {table_name}" + colorama.Fore.RESET)
-
         is_table_created = self._createTable(table_name, fields_infos)
+
+        if  is_table_created:
+            print(colorama.Fore.BLUE + f"\t- Table '{table_name}' created" + colorama.Fore.RESET)
 
         # If table creation failed or there is no records to insert
         if len(records) == 0 or not is_table_created:
             if len(records) == 0:
-                print(colorama.Fore.BLUE + "Table is empty" + colorama.Fore.RESET)
+                print(colorama.Fore.BLUE + f"\t- Table '{table_name}' is empty" + colorama.Fore.RESET)
             else:
-                print(colorama.Fore.RED + "creation of table went wrong" + colorama.Fore.RESET)
-            print(f"End addFromBackup({table_name})")
+                print(colorama.Fore.RED + f"\t- Failed to create table '{table_name}'" + colorama.Fore.RESET)
+
+            if self._config_manager.debug_mode:
+                print(f"End addFromBackup({table_name})")
             return False
 
-        print(colorama.Fore.GREEN + f"Records in table {table_name} found, inserts will start" + colorama.Fore.RESET)
+        # print(colorama.Fore.BLUE + f"{len(records)} Records in table '{table_name}' found, starting record insertion" + colorama.Fore.RESET)
         fields_name: list[str] = [f"`{field_infos['field']}`" for field_infos in fields_infos]
-        self._insertRecords(table_name, fields_name, records)
+        result = self._insertRecords(table_name, fields_name, records)
+        if result:
+            print(colorama.Fore.BLUE + f"\t- {len(records)} record(s) inserted in table '{table_name}'" + colorama.Fore.RESET)
 
-        print(f"End addFromBackup({table_name})")
+        if self._config_manager.debug_mode:
+            print(f"End addFromBackup({table_name})")
         return True
 
     def removeFromDatabase(self, table: str) -> bool:
@@ -192,22 +205,27 @@ class DatabaseManager:
         :param table: name of the table
         :return: Boolean that mean if query worked or not
         """
-        print(f"Begin removeFromDatabase({table})")
+        if self._config_manager.debug_mode:
+            print(f"Begin removeFromDatabase({table})")
         self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor(prepared=True)
         current_query = self._table_drop_query
         try:
             self._cursor.execute(current_query.replace("%table", table))
         except Exception as e:
-            print(colorama.Fore.RED + f"{e}" + colorama.Fore.RESET)
+            print(colorama.Fore.RED + f"\t- Failed to remove table '{table}' from database" + colorama.Fore.RESET)
+            if self._config_manager.debug_mode:
+                print(colorama.Fore.RED + f"\t- {e}" + colorama.Fore.RESET)
+                print(f"End removeFromDatabase({table})")
             self._connection.close()
-            print(f"End removeFromDatabase({table})")
             self._connection.rollback()
             self.table_delete_error += 1
             return False
         self._connection.commit()
         self._connection.close()
-        print(f"End removeFromDatabase({table})")
+        print(colorama.Fore.BLUE + f"\t- Table '{table}' removed from database" + colorama.Fore.RESET)
+        if self._config_manager.debug_mode:
+            print(f"End removeFromDatabase({table})")
         return True
 
     def _createTable(self, table_name: str, fields_infos) -> bool:
@@ -217,6 +235,8 @@ class DatabaseManager:
         :param fields_infos: json pattern of all the table fields
         :return: Boolean that mean if query worked or not
         """
+        if self._config_manager.debug_mode:
+            print(f"Begin _createTable({table_name})")
         current_query = self._table_creation_query
         self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor(prepared=True)
@@ -231,12 +251,21 @@ class DatabaseManager:
         try:
             # Build query
             current_query = current_query.replace("%fields", concat_fields).replace("%table", table_name)
-            print(f"Query used is: {current_query}")
             self._cursor.execute(current_query)
         except Exception as e:
-            print(colorama.Fore.RED + f"{e}" + colorama.Fore.RESET)
+            print(colorama.Fore.RED + f"\t- Failed to create table '{table_name}'" + colorama.Fore.RESET)
+            if self._config_manager.debug_mode:
+                print(colorama.Fore.RED + f"\t- {e}" + colorama.Fore.RESET)
             self.table_creation_error += 1
+            self._connection.rollback()
+            self._connection.close()
+            if self._config_manager.debug_mode:
+                print(f"Ending _createTable({table_name})")
             return False
+        self._connection.close()
+
+        if self._config_manager.debug_mode:
+            print(f"Ending _createTable({table_name})")
         return True
 
     def _buildFieldString(self, field_informations) -> str:
@@ -245,6 +274,8 @@ class DatabaseManager:
         :param field_informations: json pattern of a field
         :return: field string
         """
+        if self._config_manager.debug_mode:
+            print("Begin _buildFieldString()")
         defaultless_types = ['TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
                              'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
                              'GEOMETRY', 'POLYGON', 'POINT', 'LINESTRING', 'MULTILINESTRING', 'MULTIPOINT', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'
@@ -266,5 +297,6 @@ class DatabaseManager:
             else:
                 concat_field += f" DEFAULT {field_informations['default']}"
 
-        print(concat_field)
+        if self._config_manager.debug_mode:
+            print("Ending _buildFieldString()")
         return concat_field

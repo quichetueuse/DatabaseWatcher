@@ -2,6 +2,8 @@ from datetime import datetime, date, time
 from decimal import Decimal
 from typing import List
 
+import colorama
+
 from ConfigManager import ConfigManager
 from DatabaseManager import DatabaseManager
 from DumpManager import DumpManager
@@ -17,6 +19,10 @@ class DatabaseWatcher:
         # instancing other app components
         self.database_manager = DatabaseManager(config_manager=self.config_manager)
         self.dump_manager = DumpManager(config_manager=self.config_manager)
+
+        self.add_table_counter: int = 0
+        self.delete_table_counter: int = 0
+        self.update_table_counter: int = 0
 
     def _createDictionary(self) -> dict:
         """
@@ -112,20 +118,23 @@ class DatabaseWatcher:
             backup_table_names.append(table['name'])
 
         db_table_names: list[str] = self._getAllTablesName()
-        print(f'current table names: {db_table_names}\n backup table names: {backup_table_names}')
 
         # Loop through backup tables (to add or update)
         while len(backup_table_names) > 0:
+            print("\n")
             table = backup_table_names[-1]
+
             # Add table from backup
             if self._getIndexValueFromList(db_table_names, table) is None:
-                print('\nAjout')
+                print(colorama.Fore.BLUE + f"Adding table '{table}' from backup" + colorama.Fore.RESET)
+                self.add_table_counter += 1
                 self.database_manager.addFromBackup(table, backup)
                 backup_table_names.pop(-1)
 
             # Update table from backup
             else:
-                print('\nupdate')
+                print(colorama.Fore.BLUE + f"Updating table '{table}' from backup" + colorama.Fore.RESET)
+                self.update_table_counter += 1
                 self.database_manager.removeFromDatabase(table)
                 self.database_manager.addFromBackup(table, backup)
                 backup_table_names.pop(-1)
@@ -133,17 +142,30 @@ class DatabaseWatcher:
 
         # Loop through remaining tables from database (to be removed)
         while len(db_table_names) > 0:
-            print('\ndelete')
+            print("\n")
             table = db_table_names[-1]
+            print(colorama.Fore.BLUE + f"Deleting table '{table}' from database" + colorama.Fore.RESET)
+            self.delete_table_counter += 1
             # Remove table from database
             self.database_manager.removeFromDatabase(table)
             db_table_names.pop(-1)
 
         # Show errors to user
-        print(f"\n============\nBackup restoring ended with {self.database_manager.table_creation_error + self.database_manager.table_delete_error + self.database_manager.record_insert_error} errors:")
-        print(f"\t- {self.database_manager.table_creation_error} table creation error(s)")
-        print(f"\t- {self.database_manager.table_delete_error} table delete error(s)")
-        print(f"\t- {self.database_manager.record_insert_error} record insert error(s)")
+        total_errors = self.database_manager.table_creation_error + self.database_manager.table_delete_error + self.database_manager.record_insert_error
+        print(f"\n============\nBackup restoration ended with {total_errors} error(s):")
+        if self.database_manager.table_creation_error > 0:
+            print(f"\t- {self.database_manager.table_creation_error} error(s) during table creation")
+        if self.database_manager.table_delete_error > 0:
+            print(f"\t- {self.database_manager.table_delete_error} error(s) during table deletion")
+        if self.database_manager.record_insert_error > 0:
+            print(f"\t- {self.database_manager.record_insert_error} error(s) during record insertion")
+        # Table infos
+        if self.add_table_counter > 0:
+            print(f"\t- Insertion of {self.add_table_counter} table(s)")
+        if self.delete_table_counter > 0:
+            print(f"\t- Deletion of {self.delete_table_counter} table(s)")
+        if self.update_table_counter > 0:
+            print(f"\t- Update of {self.update_table_counter} table(s)")
 
     def _getIndexValueFromList(self, list_to_check: list, value: str):
         """
