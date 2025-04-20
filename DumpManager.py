@@ -2,6 +2,8 @@ import json
 # from json import dumps
 from typing import List
 
+import colorama
+
 from ConfigManager import ConfigManager
 from Cypher import Cypher
 from json import dumps, dump
@@ -152,10 +154,12 @@ class DumpManager:
         """
         json_content: dict = {}
         file_name = self._buildFileName(file_name)
-
-        with (open(file_name, 'r', encoding="utf-8") as json_file):
-           json_content = json.load(json_file)
-
+        try:
+            with (open(file_name, 'r', encoding="utf-8") as json_file):
+               json_content = json.load(json_file)
+        except FileNotFoundError:
+            print(colorama.Fore.RED + f"file '{file_name}' not found, check if the file was moved or delete (also check configuration file)" + colorama.Fore.RESET)
+            exit(1)
         return json_content
 
     def _buildFileName(self, name: str) -> str:
