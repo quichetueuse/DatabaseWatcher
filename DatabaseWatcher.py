@@ -19,6 +19,10 @@ class DatabaseWatcher:
         self.dump_manager = DumpManager(config_manager=self.config_manager)
 
     def _createDictionary(self) -> dict:
+        """
+        Create dictionnary that will be converted into json
+        :return: backup dictionnary
+        """
         database_dump: dict = {'tables': []}
 
         # Getting all the tables name in selected database
@@ -42,6 +46,11 @@ class DatabaseWatcher:
 
 
     def _generateFieldPatterns(self, table: str) -> List[dict]:
+        """
+        Build json patterns for field and their properties of given table
+        :param table: name of the table
+        :return: json pattern for each field of a given table
+        """
         # Getting every field from current table
         fields = self.database_manager._getFieldsFromTable(table=table)
 
@@ -62,6 +71,11 @@ class DatabaseWatcher:
         return field_patterns
 
     def _generateRecordPatterns(self, table: str) -> List[list]:
+        """
+        Build json patterns for records of given table
+        :param table: name of the table
+        :return: json pattern for each record of a given table
+        """
         # Getting every record from current table
         records = self.database_manager._getRecordsFromTable(table=table)
 
@@ -77,6 +91,10 @@ class DatabaseWatcher:
         return record_values
 
     def _getAllTablesName(self) -> List[str]:
+        """
+        Get all tables name
+        :return: list containing all the tables name
+        """
         raw_tables: List[tuple] = self.database_manager._getAllTables()
 
         # Getting only tables name
@@ -84,6 +102,9 @@ class DatabaseWatcher:
         return tables_name
 
     def compareTables(self):
+        """
+        Restore backup into database
+        """
         # Getting table names from both the backup file and database
         backup = self.dump_manager._GetBackup()
         backup_table_names: list[str] = []
@@ -125,6 +146,12 @@ class DatabaseWatcher:
         print(f"\t- {self.database_manager.record_insert_error} record insert error(s)")
 
     def _getIndexValueFromList(self, list_to_check: list, value: str):
+        """
+        Get index of a value in a list
+        :param list_to_check: list where the research is done
+        :param value: value that need to be found
+        :return: Index if found or None
+        """
         try:
             result = list_to_check.index(value)
         except ValueError:
@@ -132,6 +159,9 @@ class DatabaseWatcher:
         return result
 
     def dumpDatabase(self):
+        """
+        Create json backup file
+        """
         db_dump = self._createDictionary()
         self.dump_manager.writeJsonDump(db_dump, encrypt_dump=self.crypt_dump, file_name=self.config_manager.json_file_name)
         print(f"\n============\nBackup creation ended with {self.database_manager.table_gathering_error + self.database_manager.property_gathering_error + self.database_manager.record_gathering_error} errors:")
