@@ -7,10 +7,8 @@ class ConfigManager:
 
     def __init__(self, config_file_path: str):
         self.config = configparser.ConfigParser()
-        # self.config.read("Tests/config_tests.ini", encoding="utf-8")
         try:
             self.config.read(config_file_path, encoding="utf-8")
-            # self.config.read("../config.ini", encoding="utf-8")
 
             # getting ini sections
             self.main_section = self.config['MAIN']
