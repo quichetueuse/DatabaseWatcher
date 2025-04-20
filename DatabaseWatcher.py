@@ -23,7 +23,7 @@ class DatabaseWatcher:
         # self.field_pattern: dict = {"field": None, "type": None, "null": True, "key": None, "default": None, "extra": None}
         # self.record_pattern: dict = {"field": None, "value": None}
 
-    def createDictionary(self) -> dict:
+    def _createDictionary(self) -> dict:
         database_dump: dict = {'tables': []}
 
         # Getting all the tables name in selected database
@@ -127,7 +127,7 @@ class DatabaseWatcher:
         while len(backup_table_names) > 0:
             table = backup_table_names[-1]
             # Add table from backup
-            if self.getIndexValueFromList(db_table_names, table) is None:
+            if self._getIndexValueFromList(db_table_names, table) is None:
                 print('\nAjout')
                 self.database_manager.addFromBackup(table, backup)
                 backup_table_names.pop(-1)
@@ -153,31 +153,17 @@ class DatabaseWatcher:
         print(f"\t- {self.database_manager.table_delete_error} table delete error(s)")
         print(f"\t- {self.database_manager.record_insert_error} record insert error(s)")
 
-    def getIndexValueFromList(self, list_to_check: list, value: str):
+    def _getIndexValueFromList(self, list_to_check: list, value: str):
         try:
             result = list_to_check.index(value)
         except ValueError:
             result = None
         return result
 
-
-
-    def compareTableColumns(self, tables_to_check: list[str], backup):
-
-        for table in backup['tables']:
-            if table['name'] not in tables_to_check:
-                continue
-
-            backup_fields_infos: list = table['fields']
-            db_fields_infos: list = self._generateFieldPatterns(table['name'])
-            print(db_fields_infos[0], backup_fields_infos)
-
-
-
     def dumpDatabase(self):
         # print(self.database_manager.checkIfRecordExists('clients', 'id', '2'))
         # print(self.database_manager.updateExistingRecord('avis', ['id', 'created_at', 'updated_at', 'auteur'], ['3', '12/03/2025', '15/03/2025', 'michel']))
-        db_dump = self.createDictionary()
+        db_dump = self._createDictionary()
         self.dump_manager.writeJsonDump(db_dump, encrypt_dump=self.crypt_dump, file_name=self.config_manager.json_file_name)
         print(f"\n============\nBackup creation ended with {self.database_manager.table_gathering_error + self.database_manager.property_gathering_error + self.database_manager.record_gathering_error} errors:")
         print(f"\t- {self.database_manager.table_gathering_error} table gathering error(s)")
