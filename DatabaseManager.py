@@ -12,22 +12,30 @@ class DatabaseManager:
 
     def __init__(self, config_manager: ConfigManager):
         # data retrieve queries
-        self._get_dbs_query = 'SHOW DATABASES;'
-        self._get_tables_query = "SHOW TABLES;"
-        self._get_fields_query = "SHOW FIELDS FROM %table;"
-        self._get_records_query = "SELECT * FROM %table LIMIT 15;"
+        self._get_dbs_query: str = 'SHOW DATABASES;'
+        self._get_tables_query: str = "SHOW TABLES;"
+        self._get_fields_query: str = "SHOW FIELDS FROM %table;"
+        self._get_records_query: str = "SELECT * FROM %table LIMIT 15;"
 
         # data insertion queries
-        self._records_insert_query = "INSERT INTO %table (%fields) VALUES (?)"
-        self._record_update_query_start = "UPDATE %table SET"
-        self._record_update_query_end = " WHERE %field=%value"
-        self._table_creation_query = "CREATE TABLE %table %fields "  # https://www.w3schools.com/sql/sql_foreignkey.asp
-        self._database_creation_query = "CREATE DATABASE ?;"
-        self._table_drop_query = "DROP TABLE IF EXISTS %table"
-        self._check_record_query = "SELECT COUNT(%field) FROM %table WHERE %field=?"
+        self._records_insert_query: str = "INSERT INTO %table (%fields) VALUES (?)"
+        self._record_update_query_start: str = "UPDATE %table SET"
+        self._record_update_query_end: str = " WHERE %field=%value"
+        self._table_creation_query: str = "CREATE TABLE %table %fields "  # https://www.w3schools.com/sql/sql_foreignkey.asp
+        self._database_creation_query: str = "CREATE DATABASE ?;"
+        self._table_drop_query: str = "DROP TABLE IF EXISTS %table"
+        self._check_record_query: str = "SELECT COUNT(%field) FROM %table WHERE %field=?"
 
-        self.error_count = 0
-        self._config_manager = config_manager
+        # Errors for backup creation
+        self.table_gathering_error: int = 0
+        self.property_gathering_error: int = 0
+        self.record_gathering_error: int = 0
+
+        # Errors for backup restorationg
+        self.table_creation_error: int = 0
+        self.table_delete_error: int = 0
+        self.record_insert_error: int = 0
+        self._config_manager: ConfigManager = config_manager
         # self._connection = mariadb.connect(
         #     host=self._config_manager.host,
         #     user=self._config_manager.user,
@@ -39,12 +47,17 @@ class DatabaseManager:
         # self._connection.close()
 
     def _connectToDBServer(self) -> Connection:
-        return mariadb.connect(
-            host=self._config_manager.host,
-            user=self._config_manager.user,
-            password=self._config_manager.password,
-            database=self._config_manager.database
-        )
+        try:
+            conn = mariadb.connect(
+                host=self._config_manager.host,
+                user=self._config_manager.user,
+                password=self._config_manager.password,
+                database=self._config_manager.database
+            )
+            return conn
+        except mariadb.OperationalError:
+            print(colorama.Fore.RED + "Hostname is not accessible or was mistyped in config file" + colorama.Fore.RESET)
+            exit(1)
 
     # def getAll(self, fields: List[str], table: str):
     #     pass
@@ -65,10 +78,15 @@ class DatabaseManager:
         # self._connection.reconnect()
         self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor()
+        tables = None
+        try:
+            self._cursor.execute(self._get_tables_query)
+            tables = self._cursor.fetchall()
 
-        self._cursor.execute(self._get_tables_query)
-        tables = self._cursor.fetchall()
-
+        except Exception as e:
+            print(colorama.Fore.RED + "Failed to gather tables'")
+            print(f"{e}" + colorama.Fore.RESET)
+            self.table_gathering_error += 1
         self._connection.close()
         self._cursor = None
         return tables
@@ -76,12 +94,17 @@ class DatabaseManager:
     def _getFieldsFromTable(self, table: str) -> List[tuple]:
         self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor()
-
+        fields = None
         # test = self._get_fields_query.replace('?', table)
         # self._cursor.execute(self._get_fields_query, table)
-        self._cursor.execute(self._get_fields_query.replace('%table', table))
-        # self._cursor.execute("SELECT * FROM clients WHERE nom= %s", ('Smith',))
-        fields = self._cursor.fetchall()
+        try:
+            self._cursor.execute(self._get_fields_query.replace('%table', table))
+            # self._cursor.execute("SELECT * FROM clients WHERE nom= %s", ('Smith',))
+            fields = self._cursor.fetchall()
+        except Exception as e:
+            print(colorama.Fore.RED + f"Failed to gather properties from table '{table}'")
+            print(f"{e}" + colorama.Fore.RESET)
+            self.property_gathering_error += 1
 
         self._connection.close()
         self._cursor = None
@@ -91,9 +114,15 @@ class DatabaseManager:
     def _getRecordsFromTable(self, table: str) -> List[tuple]:
         self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor(prepared=True)
+        records = None
+        try:
+            self._cursor.execute(self._get_records_query.replace('%table', table))
+            records = self._cursor.fetchall()
 
-        self._cursor.execute(self._get_records_query.replace('%table', table))
-        records = self._cursor.fetchall()
+        except Exception as e:
+            print(colorama.Fore.RED + f"Failed to gather records from table '{table}'")
+            print(f"{e}" + colorama.Fore.RESET)
+            self.record_gathering_error += 1
 
         self._connection.close()
         self._cursor = None
@@ -138,7 +167,7 @@ class DatabaseManager:
     #         return False
     #
     #     return True
-    def insertRecords(self, table: str, fields: list, values: list) -> bool:
+    def _insertRecords(self, table: str, fields: list, values: list) -> bool:
         print(f"Begin populating table {table}")
         # Build insert query
         current_query = self._records_insert_query
@@ -158,7 +187,7 @@ class DatabaseManager:
             self._connection.rollback()
             print(colorama.Fore.RED + f"Ending populating table {table} with errors: {current_query}" + colorama.Fore.RESET)
             print(colorama.Fore.RED + f"{e}" + colorama.Fore.RESET)
-            self.error_count +=1
+            self.record_insert_error +=1
             return False
 
         self._connection.commit()
@@ -178,7 +207,7 @@ class DatabaseManager:
 
         print(colorama.Fore.BLUE + f"{len(records)} records were found for table {table_name}" + colorama.Fore.RESET)
 
-        is_table_created = self.createTable(table_name, fields_infos)
+        is_table_created = self._createTable(table_name, fields_infos)
 
         # If table creation failed or there is no records to insert
         if len(records) == 0 or not is_table_created:
@@ -192,7 +221,7 @@ class DatabaseManager:
 
         print(colorama.Fore.GREEN + f"Records in table {table_name} found, inserts will start" + colorama.Fore.RESET)
         fields_name: list[str] = [f"`{field_infos['field']}`" for field_infos in fields_infos]
-        self.insertRecords(table_name, fields_name, records)
+        self._insertRecords(table_name, fields_name, records)
         # # Populating table if there is something in it
         # if len(records) > 0 and is_table_created:
         #     print(colorama.Fore.GREEN + f"Records in table {table_name} found, inserts will start" + colorama.Fore.RESET)
@@ -219,7 +248,7 @@ class DatabaseManager:
             self._connection.close()
             print(f"End removeFromDatabase({table})")
             self._connection.rollback()
-            self.error_count +=1
+            self.table_delete_error += 1
             return False
         self._connection.commit()
         self._connection.close()
@@ -229,16 +258,16 @@ class DatabaseManager:
 
 
 
-    def createTable(self, table_name: str, fields_infos) -> bool:
+    def _createTable(self, table_name: str, fields_infos) -> bool:
         current_query = self._table_creation_query
         self._connection = self._connectToDBServer()
         self._cursor = self._connection.cursor(prepared=True)
         concat_fields: str = "("
         for field_infos in fields_infos:
             if fields_infos.index(field_infos) + 1 == len(fields_infos):
-                concat_fields += self.buildFieldString(field_infos)
+                concat_fields += self._buildFieldString(field_infos)
             else:
-                concat_fields += self.buildFieldString(field_infos) + ", "
+                concat_fields += self._buildFieldString(field_infos) + ", "
         concat_fields += ")"
         try:
             current_query = current_query.replace("%fields", concat_fields).replace("%table", table_name)
@@ -246,11 +275,11 @@ class DatabaseManager:
             self._cursor.execute(current_query)
         except Exception as e:
             print(colorama.Fore.RED + f"{e}" + colorama.Fore.RESET)
-            self.error_count +=1
+            self.table_creation_error += 1
             return False
         return True
 
-    def buildFieldString(self, field_informations) -> str:
+    def _buildFieldString(self, field_informations) -> str:
         defaultless_types = ['TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
                              'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
                              'GEOMETRY', 'POLYGON', 'POINT', 'LINESTRING', 'MULTILINESTRING', 'MULTIPOINT', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'
