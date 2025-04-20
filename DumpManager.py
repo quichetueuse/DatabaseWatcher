@@ -20,13 +20,12 @@ class DumpManager:
 
     def _toJson(self, database_dump: dict, encrypt_data: bool = False) -> str:
         """
-        Method that take à dictionary and convert it to a string in json format
+        Take à dictionary and convert it to a string in json format
         :param database_dump: Content of the database
         :param encrypt_data: If true json values are not encrypted
         :rtype: str
         :return: Content of the database is json format (in string)
         """
-
         # If no encryption is needed
         if not encrypt_data:
             # print(json.dumps(database_dump, indent=2, ensure_ascii=False))
@@ -48,14 +47,17 @@ class DumpManager:
             table_pattern['name'] = self.cypher.encryptString(table['name'])
             table_pattern['fields'] = self._encryptFields(table['fields'])
             table_pattern['records'] = self._encryptRecords(table['records'])
-            # print(self.cypher.encryptString(table['name']))
 
             encrypted_database_dump['tables'].append(table_pattern)
 
         return json.dumps(encrypted_database_dump, indent=2, ensure_ascii=False)
 
     def _encryptFields(self, fields: List[dict]) -> List[dict]:
-
+        """
+        Encrypt given fields
+        :param fields: fields that need to be encrypted
+        :return: encrypted field s
+        """
         # List that will store all the field patterns
         field_patterns: list[dict] = []
 
@@ -73,6 +75,11 @@ class DumpManager:
         return field_patterns
 
     def _DecryptFields(self, fields: List[dict]) -> List[dict]:
+        """
+        Decrypt given field pattern
+        :param fields: encrypted fields
+        :return: decrypted fields
+        """
         # List that will store all the field patterns
         field_patterns: list[dict] = []
 
@@ -83,12 +90,6 @@ class DumpManager:
             # Filling blank pattern
             for key in field_pattern.keys():
                 field_pattern[key] = self.cypher.decryptString(field[key])
-                # decrypted = self.cypher.decryptString(field[key])
-                # if decrypted == None:
-                #     field_pattern[key] = 'None'
-                # else:
-                #     field_pattern[key] = decrypted
-
 
             # Appending pattern to pattern list
             field_patterns.append(field_pattern)
@@ -96,7 +97,11 @@ class DumpManager:
         return field_patterns
 
     def _encryptRecords(self, records: List[list]) -> List[list]:
-
+        """
+        Encrypt records
+        :param records: all the record that need to be encrypted
+        :return: list of encrypted records
+        """
         # List of tuple that will store every record
         record_values: List[list] = []
 
@@ -109,45 +114,56 @@ class DumpManager:
         return record_values
 
     def _DecryptRecords(self, records: List[list]) -> List[list]:
-
+        """
+        Decrypt given record pattern
+        :param records: encrypted record pattern
+        :return: decrypted record pattern
+        """
         # List of tuple that will store every record
         record_values: List[list] = []
 
         # looping through each record fetched from database
         for record in records:
             # Convert every value to string to avoid exception while trying to convert datetime to json
-            # temporary: list = []
             temporary = [self.cypher.decryptString(value) for value in record]
-            # for value in record:
-            #     decrypted = self.cypher.decryptString(value)
-            #     if decrypted == None:
-            #         temporary.append('None')
-            #     else:
-            #         temporary.append(decrypted)
             record_values.append(temporary)
 
         return record_values
 
     def writeJsonDump(self, dump_dictionary: dict, file_name: str, encrypt_dump: bool = False):
+        """
+        Write json backup in file
+        :param dump_dictionary: dictionnary of database to back up
+        :param file_name: name of backup file
+        :param encrypt_dump: does data need encryption (default is no)
+        """
         json_str = self._toJson(database_dump=dump_dictionary, encrypt_data=encrypt_dump)
         file_name = self._buildFileName(file_name)
 
         # Writing dump into file
         with (open(file_name, 'w', encoding='utf-8') as json_file):
             json_file.write(json_str)
-        return
 
     def readJsonDump(self, file_name) -> dict:
+        """
+        Read given file and extract the backup content
+        :param file_name: file to read
+        :return: backup file content as dictionnary
+        """
         json_content: dict = {}
         file_name = self._buildFileName(file_name)
 
         with (open(file_name, 'r', encoding="utf-8") as json_file):
            json_content = json.load(json_file)
 
-        # print(json_content['tables'][0]['fields'])
         return json_content
 
     def _buildFileName(self, name: str) -> str:
+        """
+        Add extension to file name if it's missing
+        :param name: name of backup file
+        :return: proper file name
+        """
         # If extension in name
         if '.json' in name:
             return name
@@ -156,7 +172,11 @@ class DumpManager:
 
 
     def _DecryptJsonFile(self, json_content: dict) -> dict:
-
+        """
+        Decrypt content of json backup file to make it readable
+        :param json_content: json backup
+        :return: décrypted json backup
+        """
         # Dictionary that will store decrypted data
         decrypted_database_dump: dict = {"tables": []}
 
@@ -166,39 +186,25 @@ class DumpManager:
 
             # Blank pattern for database data
             table_pattern = {"name": None, "fields": [], "records": []}
-
-            # Filling pattern with encrypted data
             table_pattern['name'] = self.cypher.decryptString(table['name'])
-            # if self.cypher.decryptString(table['name']) == 'avis':
-            #     pass
             table_pattern['fields'] = self._DecryptFields(table['fields'])
             table_pattern['records'] = self._DecryptRecords(table['records'])
-            # print(self.cypher.encryptString(table['name']))
 
             decrypted_database_dump['tables'].append(table_pattern)
 
         return decrypted_database_dump
-        # return json.dumps(decrypted_database_dump, indent=2, ensure_ascii=False)
 
 
     def _GetBackup(self) -> dict:
+        """
+        Will read json backup file and decrypt it if needed
+        :return: json backup as dictionnary
+        """
         json_content: dict = self.readJsonDump(self.config_manager.json_file_name)
 
         # If content need to be decrypted
         if self.crypt_dump:
             decrypted_content: dict = self._DecryptJsonFile(json_content)
-            # print(decrypted_content)
             return decrypted_content
         # If content don't need to be decrypted
         return json_content
-
-
-
-    def createBackupFile(self, database_dump: dict):
-        pass
-
-    def backupDatabase(self, databse_name: str):
-        pass
-
-    def restoreDatabase(self, json_path: str):
-        pass
